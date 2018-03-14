@@ -259,3 +259,20 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+wwwroot/dist/inline.bundle.js
+wwwroot/dist/inline.bundle.js
+wwwroot/dist/inline.bundle.js
+wwwroot/dist/inline.bundle.js
+wwwroot/dist/polyfills.bundle.js
+wwwroot/dist/inline.bundle.js.map
+wwwroot/dist/main.bundle.js
+wwwroot/dist/main.bundle.js.map
+wwwroot/dist/polyfills.bundle.js.map
+wwwroot/dist/styles.bundle.js
+wwwroot/dist/styles.bundle.js.map
+wwwroot/dist/vendor.bundle.js
+wwwroot/dist/vendor.bundle.js.map
+.DS_Store
+wwwroot/dist/favicon.ico
+wwwroot/dist/index.html
+wwwroot/lib/jquery/.bower.json

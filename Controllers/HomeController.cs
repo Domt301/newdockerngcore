@@ -6,6 +6,7 @@ namespace SportsStore.Controllers
     {
     public IActionResult Index()
     {
+        ViewBag.Message = "Sports Store App";
     return View();
     }
 }

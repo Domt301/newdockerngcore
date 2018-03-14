@@ -145,7 +145,7 @@ module.exports = {
   },
   "entry": {
     "main": [
-      "./ClientApp\\boot.ts"
+      "./ClientApp/boot.ts"
     ],
     "polyfills": [
       "./ClientApp/polyfills.ts"
