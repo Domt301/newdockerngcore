@@ -12,7 +12,9 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 
 namespace SportsStore {
+
     public class Startup {
+
         public Startup(IConfiguration configuration) {
             Configuration = configuration;
         }
@@ -24,8 +26,10 @@ namespace SportsStore {
             services.AddDbContext<DataContext>(options =>
                     options.UseSqlServer(Configuration
                         ["Data:Products:ConnectionString"]));
-            services.AddMvc().AddJsonOptions(opts => opts.SerializerSettings.ReferenceLoopHandling
-            = ReferenceLoopHandling.Serialize);
+
+            services.AddMvc().AddJsonOptions(opts =>
+                opts.SerializerSettings.ReferenceLoopHandling
+                    = ReferenceLoopHandling.Serialize);
         }
 
         public void Configure(IApplicationBuilder app,
@@ -45,6 +49,7 @@ namespace SportsStore {
             });
 
             SeedData.SeedDatabase(context);
+
         }
     }
 }
