@@ -7,10 +7,11 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const rxPaths = require('rxjs/_esm5/path-mapping');
 const autoprefixer = require('autoprefixer');
 const postcssUrl = require('postcss-url');
+const cssnano = require('cssnano');
 const postcssImports = require('postcss-import');
 
 const { NoEmitOnErrorsPlugin, SourceMapDevToolPlugin, NamedModulesPlugin } = require('webpack');
-const { NamedLazyChunksWebpackPlugin, BaseHrefWebpackPlugin, PostcssCliResources } = require('@angular/cli/plugins/webpack');
+const { NamedLazyChunksWebpackPlugin, BaseHrefWebpackPlugin } = require('@angular/cli/plugins/webpack');
 const { CommonsChunkPlugin } = require('webpack').optimize;
 const { AngularCompilerPlugin } = require('@ngtools/webpack');
 
@@ -18,39 +19,33 @@ const nodeModules = path.join(process.cwd(), 'node_modules');
 const realNodeModules = fs.realpathSync(nodeModules);
 const genDirNodeModules = path.join(process.cwd(), 'ClientApp', '$$_gendir', 'node_modules');
 const entryPoints = ["inline","polyfills","sw-register","styles","vendor","main"];
-const hashFormat = {"chunk":"","extract":"","file":".[hash:20]","script":""};
+const minimizeCss = false;
 const baseHref = "";
 const deployUrl = "";
 const projectRoot = process.cwd();
 const maximumInlineSize = 10;
 const postcssPlugins = function (loader) {
+        // safe settings based on: https://github.com/ben-eb/cssnano/issues/358#issuecomment-283696193
+        const importantCommentRe = /@preserve|@licen[cs]e|[@#]\s*source(?:Mapping)?URL|^!/i;
+        const minimizeOptions = {
+            autoprefixer: false,
+            safe: true,
+            mergeLonghand: false,
+            discardComments: { remove: (comment) => !importantCommentRe.test(comment) }
+        };
         return [
             postcssImports({
                 resolve: (url, context) => {
                     return new Promise((resolve, reject) => {
-                        let hadTilde = false;
                         if (url && url.startsWith('~')) {
                             url = url.substr(1);
-                            hadTilde = true;
                         }
-                        loader.resolve(context, (hadTilde ? '' : './') + url, (err, result) => {
+                        loader.resolve(context, url, (err, result) => {
                             if (err) {
-                                if (hadTilde) {
-                                    reject(err);
-                                    return;
-                                }
-                                loader.resolve(context, url, (err, result) => {
-                                    if (err) {
-                                        reject(err);
-                                    }
-                                    else {
-                                        resolve(result);
-                                    }
-                                });
+                                reject(err);
+                                return;
                             }
-                            else {
-                                resolve(result);
-                            }
+                            resolve(result);
                         });
                     });
                 },
@@ -103,17 +98,12 @@ const postcssPlugins = function (loader) {
                     url: 'inline',
                     // NOTE: maxSize is in KB
                     maxSize: maximumInlineSize,
-                    fallback: 'rebase',
+                    fallback: 'rebase'
                 },
                 { url: 'rebase' },
             ]),
-            PostcssCliResources({
-                deployUrl: loader.loaders[loader.loaderIndex].options.ident == 'extracted' ? '' : deployUrl,
-                loader,
-                filename: `[name]${hashFormat.file}.[ext]`,
-            }),
             autoprefixer({ grid: true }),
-        ];
+        ].concat(minimizeCss ? [cssnano(minimizeOptions)] : []);
     };
 
 
@@ -125,11 +115,11 @@ module.exports = {
       ".ts",
       ".js"
     ],
-    "symlinks": true,
     "modules": [
-      "./ClientApp",
+      "./node_modules",
       "./node_modules"
     ],
+    "symlinks": true,
     "alias": rxPaths(),
     "mainFields": [
       "browser",
@@ -139,27 +129,28 @@ module.exports = {
   },
   "resolveLoader": {
     "modules": [
+      "./node_modules",
       "./node_modules"
     ],
     "alias": rxPaths()
   },
   "entry": {
     "main": [
-      "./ClientApp/boot.ts"
+      "./ClientApp\\boot.ts"
     ],
     "polyfills": [
-      "./ClientApp/polyfills.ts"
+      "./ClientApp\\polyfills.ts"
     ],
     "styles": [
-      "./ClientApp/styles.css",
-      "./wwwroot/lib/bootstrap/dist/css/bootstrap.min.css"
+      "./ClientApp\\styles.css",
+      "./wwwroot/lib/bootstrap/dist/css/bootstrap.min.css"      
     ]
   },
   "output": {
     "path": path.join(process.cwd(), "wwwroot/dist"),
-    "filename": "[name].bundle.js", 
-    "chunkFilename": "[id].chunk.js", 
-    "crossOriginLoading": false, 
+    "filename": "[name].bundle.js",
+    "chunkFilename": "[id].chunk.js",
+    "crossOriginLoading": false,
     "publicPath": "/app/"
   },
   "module": {
@@ -186,44 +177,54 @@ module.exports = {
       },
       {
         "exclude": [
-          path.join(process.cwd(), "ClientApp/styles.css")
+          path.join(process.cwd(), "ClientApp\\styles.css")
         ],
         "test": /\.css$/,
         "use": [
+          "exports-loader?module.exports.toString()",
           {
-            "loader": "raw-loader"
+            "loader": "css-loader",
+            "options": {
+              "sourceMap": false,
+              "import": false
+            }
           },
           {
             "loader": "postcss-loader",
             "options": {
-              "ident": "embedded",
+              "ident": "postcss",
               "plugins": postcssPlugins,
-              "sourceMap": true
+              "sourceMap": false
             }
           }
         ]
       },
       {
         "exclude": [
-          path.join(process.cwd(), "ClientApp/styles.css")
+          path.join(process.cwd(), "ClientApp\\styles.css")
         ],
         "test": /\.scss$|\.sass$/,
         "use": [
+          "exports-loader?module.exports.toString()",
           {
-            "loader": "raw-loader"
+            "loader": "css-loader",
+            "options": {
+              "sourceMap": false,
+              "import": false
+            }
           },
           {
             "loader": "postcss-loader",
             "options": {
-              "ident": "embedded",
+              "ident": "postcss",
               "plugins": postcssPlugins,
-              "sourceMap": true
+              "sourceMap": false
             }
           },
           {
             "loader": "sass-loader",
             "options": {
-              "sourceMap": true,
+              "sourceMap": false,
               "precision": 8,
               "includePaths": []
             }
@@ -232,50 +233,60 @@ module.exports = {
       },
       {
         "exclude": [
-          path.join(process.cwd(), "ClientApp/styles.css")
+          path.join(process.cwd(), "ClientApp\\styles.css")
         ],
         "test": /\.less$/,
         "use": [
+          "exports-loader?module.exports.toString()",
           {
-            "loader": "raw-loader"
+            "loader": "css-loader",
+            "options": {
+              "sourceMap": false,
+              "import": false
+            }
           },
           {
             "loader": "postcss-loader",
             "options": {
-              "ident": "embedded",
+              "ident": "postcss",
               "plugins": postcssPlugins,
-              "sourceMap": true
+              "sourceMap": false
             }
           },
           {
             "loader": "less-loader",
             "options": {
-              "sourceMap": true
+              "sourceMap": false
             }
           }
         ]
       },
       {
         "exclude": [
-          path.join(process.cwd(), "ClientApp/styles.css")
+          path.join(process.cwd(), "ClientApp\\styles.css")
         ],
         "test": /\.styl$/,
         "use": [
+          "exports-loader?module.exports.toString()",
           {
-            "loader": "raw-loader"
+            "loader": "css-loader",
+            "options": {
+              "sourceMap": false,
+              "import": false
+            }
           },
           {
             "loader": "postcss-loader",
             "options": {
-              "ident": "embedded",
+              "ident": "postcss",
               "plugins": postcssPlugins,
-              "sourceMap": true
+              "sourceMap": false
             }
           },
           {
             "loader": "stylus-loader",
             "options": {
-              "sourceMap": true,
+              "sourceMap": false,
               "paths": []
             }
           }
@@ -283,46 +294,54 @@ module.exports = {
       },
       {
         "include": [
-          path.join(process.cwd(), "ClientApp/styles.css")
+          path.join(process.cwd(), "ClientApp\\styles.css")
         ],
         "test": /\.css$/,
         "use": [
           "style-loader",
           {
-            "loader": "raw-loader"
+            "loader": "css-loader",
+            "options": {
+              "sourceMap": false,
+              "import": false
+            }
           },
           {
             "loader": "postcss-loader",
             "options": {
-              "ident": "embedded",
+              "ident": "postcss",
               "plugins": postcssPlugins,
-              "sourceMap": true
+              "sourceMap": false
             }
           }
         ]
       },
       {
         "include": [
-          path.join(process.cwd(), "ClientApp/styles.css")
+          path.join(process.cwd(), "ClientApp\\styles.css")
         ],
         "test": /\.scss$|\.sass$/,
         "use": [
           "style-loader",
           {
-            "loader": "raw-loader"
+            "loader": "css-loader",
+            "options": {
+              "sourceMap": false,
+              "import": false
+            }
           },
           {
             "loader": "postcss-loader",
             "options": {
-              "ident": "embedded",
+              "ident": "postcss",
               "plugins": postcssPlugins,
-              "sourceMap": true
+              "sourceMap": false
             }
           },
           {
             "loader": "sass-loader",
             "options": {
-              "sourceMap": true,
+              "sourceMap": false,
               "precision": 8,
               "includePaths": []
             }
@@ -331,52 +350,60 @@ module.exports = {
       },
       {
         "include": [
-          path.join(process.cwd(), "ClientApp/styles.css")
+          path.join(process.cwd(), "ClientApp\\styles.css")
         ],
         "test": /\.less$/,
         "use": [
           "style-loader",
           {
-            "loader": "raw-loader"
+            "loader": "css-loader",
+            "options": {
+              "sourceMap": false,
+              "import": false
+            }
           },
           {
             "loader": "postcss-loader",
             "options": {
-              "ident": "embedded",
+              "ident": "postcss",
               "plugins": postcssPlugins,
-              "sourceMap": true
+              "sourceMap": false
             }
           },
           {
             "loader": "less-loader",
             "options": {
-              "sourceMap": true
+              "sourceMap": false
             }
           }
         ]
       },
       {
         "include": [
-          path.join(process.cwd(), "ClientApp/styles.css")
+          path.join(process.cwd(), "ClientApp\\styles.css")
         ],
         "test": /\.styl$/,
         "use": [
           "style-loader",
           {
-            "loader": "raw-loader"
+            "loader": "css-loader",
+            "options": {
+              "sourceMap": false,
+              "import": false
+            }
           },
           {
             "loader": "postcss-loader",
             "options": {
-              "ident": "embedded",
+              "ident": "postcss",
               "plugins": postcssPlugins,
-              "sourceMap": true
+              "sourceMap": false
             }
           },
           {
             "loader": "stylus-loader",
             "options": {
-              "sourceMap": true,
+              "sourceMap": false,
               "paths": []
             }
           }
@@ -395,7 +422,7 @@ module.exports = {
         "context": "ClientApp",
         "to": "",
         "from": {
-          "glob": "assets/**/*",
+          "glob": "ClientApp\\assets\\**\\*",
           "dot": true
         }
       },
@@ -403,7 +430,7 @@ module.exports = {
         "context": "ClientApp",
         "to": "",
         "from": {
-          "glob": "favicon.ico",
+          "glob": "ClientApp\\favicon.ico",
           "dot": true
         }
       }
@@ -424,7 +451,7 @@ module.exports = {
     }),
     new NamedLazyChunksWebpackPlugin(),
     new HtmlWebpackPlugin({
-      "template": "./ClientApp/index.html",
+      "template": "./ClientApp\\index.html",
       "filename": "./index.html",
       "hash": false,
       "inject": true,
@@ -439,11 +466,11 @@ module.exports = {
       "xhtml": true,
       "chunksSortMode": function sort(left, right) {
         let leftIndex = entryPoints.indexOf(left.names[0]);
-        let rightIndex = entryPoints.indexOf(right.names[0]);
-        if (leftIndex > rightIndex) {
+        let rightindex = entryPoints.indexOf(right.names[0]);
+        if (leftIndex > rightindex) {
             return 1;
         }
-        else if (leftIndex < rightIndex) {
+        else if (leftIndex < rightindex) {
             return -1;
         }
         else {
@@ -490,10 +517,10 @@ module.exports = {
       "mainPath": "main.ts",
       "platform": 0,
       "hostReplacementPaths": {
-        "environments/environment.ts": "environments/environment.ts"
+        "environments\\environment.ts": "environments\\environment.ts"
       },
       "sourceMap": true,
-      "tsConfigPath": "ClientApp/tsconfig.app.json",
+      "tsConfigPath": "ClientApp\\tsconfig.app.json",
       "skipCodeGeneration": true,
       "compilerOptions": {}
     })

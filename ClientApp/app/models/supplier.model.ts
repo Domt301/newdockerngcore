@@ -1,4 +1,4 @@
-export class Supplier {
+﻿export class Supplier {
     constructor(
         public supplierId?: number,
         public name?: string,

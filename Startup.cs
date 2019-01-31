@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,15 +21,29 @@ namespace SportsStore {
 
         public IConfiguration Configuration { get; }
 
-
         public void ConfigureServices(IServiceCollection services) {
             services.AddDbContext<DataContext>(options =>
-                    options.UseSqlServer(Configuration
-                        ["Data:Products:ConnectionString"]));
+                options.UseSqlServer(Configuration
+                    ["Data:Products:ConnectionString"]));
 
-            services.AddMvc().AddJsonOptions(opts =>
+            services.AddMvc().AddJsonOptions(opts => {
                 opts.SerializerSettings.ReferenceLoopHandling
-                    = ReferenceLoopHandling.Serialize);
+                    = ReferenceLoopHandling.Serialize;
+                opts.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
+            });
+
+            services.AddDistributedSqlServerCache(options => {
+                options.ConnectionString =
+                    Configuration["Data:Products:ConnectionString"];
+                options.SchemaName = "dbo";
+                options.TableName = "SessionData";
+            });
+
+            services.AddSession(options => {
+                options.Cookie.Name = "SportsStore.Session";
+                options.IdleTimeout = System.TimeSpan.FromHours(48);
+                options.Cookie.HttpOnly = false;
+            });
         }
 
         public void Configure(IApplicationBuilder app,
@@ -41,11 +55,15 @@ namespace SportsStore {
             });
 
             app.UseStaticFiles();
+            app.UseSession();
 
             app.UseMvc(routes => {
                 routes.MapRoute(
                     name: "default",
                     template: "{controller=Home}/{action=Index}/{id?}");
+
+                routes.MapSpaFallbackRoute("angular-fallback",
+                    new { controller = "Home", action = "Index" });
             });
 
             SeedData.SeedDatabase(context);

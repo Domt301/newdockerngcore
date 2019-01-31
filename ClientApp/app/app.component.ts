@@ -1,15 +1,24 @@
-import { Component } from '@angular/core';
-import { Repository } from "./models/repository";
-import { Product } from "./models/product.model";
+import { Component, NgZone } from '@angular/core';
+import { ErrorHandlerService } from "./errorHandler.service";
 
 @Component({
-    selector: 'app-root',
-    templateUrl: './app.component.html',
-    styleUrls: ['./app.component.css']
+    selector: "app-root",
+    templateUrl: "./app.component.html"
 })
 export class AppComponent {
-    constructor(private repo: Repository) { }
-    get product(): Product {
-        return this.repo.product;
+    private lastError: string[];
+
+    constructor(errorHandler: ErrorHandlerService, ngZone: NgZone) {
+        errorHandler.errors.subscribe(error => {
+            ngZone.run(() => this.lastError = error);
+        });
+    }
+
+    get error(): string[] {
+        return this.lastError;
+    }
+
+    clearError() {
+        this.lastError = null;
     }
 }
